@@ -3934,6 +3934,28 @@ cdef class Model:
         nodesel.model = <Model>weakref.proxy(self)
         Py_INCREF(nodesel)
 
+    def getMapping(self):
+        cdef SCIP* scip = self._scip
+        cdef SCIP_COL** cols = SCIPgetLPCols(scip)
+        cdef int ncols = SCIPgetNLPCols(scip)
+        cdef int i, col_i
+        cdef SCIP_VAR* scip_var
+
+        cdef dict cands = {}
+
+        for i in range(ncols):
+            col_i = SCIPcolGetLPPos(cols[i])
+            scip_var = SCIPcolGetVar(cols[i])
+            var = Variable.create(scip_var)
+            varname = var.name
+            vartype = var.vtype()
+
+            if vartype == 'BINARY':
+                cands[col_i] = varname 
+
+        return cands
+
+
 
     def getState(self, prev_state = None):
         cdef SCIP* scip = self._scip
