@@ -27,6 +27,7 @@ include "pricer.pxi"
 include "propagator.pxi"
 include "sepa.pxi"
 include "relax.pxi"
+include "nodesel.pxi"
 
 # recommended SCIP version; major version is required
 MAJOR = 6
@@ -3913,6 +3914,26 @@ cdef class Model:
         ps_up = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_UPWARDS)
         ps_down = SCIPgetVarPseudocost(self._scip, scip_var, SCIP_BRANCHDIR_DOWNWARDS)
         return ps_up * ps_down
+
+
+    def includeNodesel(self, Nodesel nodesel, name, desc, stdpriority, memsavepriority):
+        """Include a node selector.
+        :param Nodesel nodesel: node selector
+        :param name: name of node selector
+        :param desc: description of node selector
+        :param stdpriority: priority of the node selector in standard mode
+        :param memsavepriority: priority of the node selector in memory saving mode
+        """
+        nam = str_conversion(name)
+        des = str_conversion(desc)
+        PY_SCIP_CALL(SCIPincludeNodesel(self._scip, nam, des,
+                                          stdpriority, memsavepriority,
+                                          PyNodeselCopy, PyNodeselFree, PyNodeselInit, PyNodeselExit,
+                                          PyNodeselInitsol, PyNodeselExitsol, PyNodeselSelect, PyNodeselComp,
+                                          <SCIP_NODESELDATA*> nodesel))
+        nodesel.model = <Model>weakref.proxy(self)
+        Py_INCREF(nodesel)
+
 
     def getState(self, prev_state = None):
         cdef SCIP* scip = self._scip
