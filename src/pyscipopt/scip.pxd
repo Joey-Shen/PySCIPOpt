@@ -476,6 +476,16 @@ cdef extern from "scip/scip.h":
     ctypedef void (*errormessagecallback) (void *data, FILE *file, const char *msg)
     ctypedef SCIP_RETCODE (*messagehdlrfree) (SCIP_MESSAGEHDLR *messagehdlr)
 
+    # My methods
+    SCIP_EXPORT SCIP_NODESEL* SCIPfindNodesel 	( 	SCIP *  	scip,
+		const char *  name 
+	) 	
+
+    SCIP_EXPORT SCIP_RETCODE SCIPsetNodeselStdPriority 	( 	SCIP *  	scip,
+		SCIP_NODESEL *  	nodesel,
+		int  	priority 
+	) 	
+    
     # General SCIP Methods
     SCIP_RETCODE SCIPcreate(SCIP** scip)
     SCIP_RETCODE SCIPfree(SCIP** scip)

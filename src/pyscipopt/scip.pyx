@@ -3955,6 +3955,22 @@ cdef class Model:
 
         return cands
 
+    def getTimeSol():
+        # check if a better sol is found
+        cdef SCIP_SOL* sol = SCIPgetBestSol(scip)
+        if sol != 0:
+            obj = SCIPgetSolOrigObj(scip, sol)
+            time = SCIPgetSolTime(scip, sol)
+            return (time, obj)
+    
+    def setup_ml_nodelsel(self, flag, indicator_arr):
+        cdef SCIP* scip = self._scip
+       
+        # find nodesel strategy and setup its priority
+        cdef SCIP_NODESEL* nodesel = SCIPfindNodesel(scip, "nodesel_ml")
+        SCIPsetNodeselStdPriority(scip, nodesel, 6666666)
+        # cdef SCIP_NODESELDATA* data = SCIPnodeselGetData(nodesel)
+        # data.flag = flag
 
 
     def getState(self, prev_state = None):
