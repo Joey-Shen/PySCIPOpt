@@ -3968,6 +3968,7 @@ cdef class Model:
        
         # find nodesel strategy and setup its priority
         cdef SCIP_NODESEL* nodesel = SCIPfindNodesel(scip, "nodesel_ml")
+        assert(nodesel!=NULL)
         SCIPsetNodeselStdPriority(scip, nodesel, 6666666)
         # cdef SCIP_NODESELDATA* data = SCIPnodeselGetData(nodesel)
         # data.flag = flag
