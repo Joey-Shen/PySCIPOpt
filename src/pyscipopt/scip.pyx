@@ -3963,7 +3963,7 @@ cdef class Model:
             time = SCIPgetSolTime(self._scip, sol)
             return (time, obj)
     
-    def setup_ml_nodelsel(self, flag, indicator_arr=None):
+    def setup_ml_nodelsel(self, flag=0, indicator_arr=None):
         cdef SCIP* scip = self._scip
        
         # find nodesel strategy and setup its priority
