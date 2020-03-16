@@ -486,6 +486,10 @@ cdef extern from "scip/scip.h":
 		int  	priority 
 	) 	
     
+    SCIP_Real SCIPgetSolTime 	( 	SCIP *  	scip,
+		SCIP_SOL *  	sol 
+	) 		
+    
     # General SCIP Methods
     SCIP_RETCODE SCIPcreate(SCIP** scip)
     SCIP_RETCODE SCIPfree(SCIP** scip)
