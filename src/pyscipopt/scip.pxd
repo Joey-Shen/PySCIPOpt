@@ -477,11 +477,11 @@ cdef extern from "scip/scip.h":
     ctypedef SCIP_RETCODE (*messagehdlrfree) (SCIP_MESSAGEHDLR *messagehdlr)
 
     # My methods
-    SCIP_EXPORT SCIP_NODESEL* SCIPfindNodesel 	( 	SCIP *  	scip,
+    SCIP_NODESEL* SCIPfindNodesel 	( 	SCIP *  	scip,
 		const char *  name 
 	) 	
 
-    SCIP_EXPORT SCIP_RETCODE SCIPsetNodeselStdPriority 	( 	SCIP *  	scip,
+    SCIP_RETCODE SCIPsetNodeselStdPriority 	( 	SCIP *  	scip,
 		SCIP_NODESEL *  	nodesel,
 		int  	priority 
 	) 	
