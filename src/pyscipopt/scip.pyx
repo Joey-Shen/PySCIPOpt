@@ -3957,10 +3957,10 @@ cdef class Model:
 
     def getTimeSol(self):
         # check if a better sol is found
-        cdef SCIP_SOL* sol = SCIPgetBestSol(scip)
-        if sol != 0:
-            obj = SCIPgetSolOrigObj(scip, sol)
-            time = SCIPgetSolTime(scip, sol)
+        cdef SCIP_SOL* sol = SCIPgetBestSol(self._scip)
+        if sol != NULL:
+            obj = SCIPgetSolOrigObj(self._scip, sol)
+            time = SCIPgetSolTime(self._scip, sol)
             return (time, obj)
     
     def setup_ml_nodelsel(self, flag, indicator_arr=None):
