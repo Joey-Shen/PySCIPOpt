@@ -3964,12 +3964,11 @@ cdef class Model:
             return (time, obj)
     
     def setup_ml_nodelsel(self, flag=0, indicator_arr=None):
-        cdef SCIP* scip = self._scip
        
         # find nodesel strategy and setup its priority
-        cdef SCIP_NODESEL* nodesel = SCIPfindNodesel(scip, "nodesel_ml")
+        cdef SCIP_NODESEL* nodesel = SCIPfindNodesel(self._scip, "nodeselml")
         assert(nodesel!=NULL)
-        SCIPsetNodeselStdPriority(scip, nodesel, 6666666)
+        SCIPsetNodeselStdPriority(self._scip, nodesel, 6666666)
         # cdef SCIP_NODESELDATA* data = SCIPnodeselGetData(nodesel)
         # data.flag = flag
 
