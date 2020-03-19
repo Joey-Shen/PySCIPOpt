@@ -3963,6 +3963,9 @@ cdef class Model:
             time = SCIPgetSolTime(self._scip, sol)
             return (time, obj)
     
+    def getNPrimalSols(self):
+        return SCIPgetNSols(self._scip)
+
     def setup_ml_nodelsel(self, flag=0, indicator_arr=None):
        
         # find nodesel strategy and setup its priority
