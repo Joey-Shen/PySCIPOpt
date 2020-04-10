@@ -4337,8 +4337,8 @@ cdef class Model:
         cdef np.ndarray[np.float32_t, ndim=1] col_coef_min3_dual_cost
 
 
-        col_type_binary                = np.empty(shape=(ncols, ), dtype=np.float32)
-        col_type_int                = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_type_binary                = np.empty(shape=(ncols, ), dtype=np.int32)
+        col_type_int                = np.empty(shape=(ncols, ), dtype=np.int32)
         col_coefs                = np.empty(shape=(ncols, ), dtype=np.float32)
         col_coefs_pos            = np.empty(shape=(ncols, ), dtype=np.float32)
         col_coefs_neg            = np.empty(shape=(ncols, ), dtype=np.float32)
@@ -4431,8 +4431,8 @@ cdef class Model:
 
             # Objective coefficient
             col_coefs[col_i] = SCIPcolGetObj(cols[i])
-            col_coefs_pos = max(col_coefs[col_i], 0)
-            col_coefs_neg = min(col_coefs[col_i], 0)
+            col_coefs_pos[col_i] = max(col_coefs[col_i], 0)
+            col_coefs_neg[col_i] = min(col_coefs[col_i], 0)
 
             # nonzeros for col in constraints
             col_nnzrs[col_i] = SCIPcolGetNNonz(col)
@@ -4444,9 +4444,9 @@ cdef class Model:
             ##### lp features #####
             solval = SCIPcolGetPrimsol(cols[i])
             col_solvals[col_i] = solval
-            col_sol_frac_up = math.ceil(solval) - solval
-            col_sol_frac_down = solval - math.floor(solval)
-            col_sol_isfrac = SCIPfeasFrac(scip, solval)
+            col_sol_frac_up[col_i] = math.ceil(solval) - solval
+            col_sol_frac_down[col_i] = solval - math.floor(solval)
+            col_sol_isfrac[col_i] = SCIPfeasFrac(scip, solval)
 
             # Global bounds
             col_lbs[col_i] = SCIPcolGetLb(cols[i])
@@ -4474,7 +4474,7 @@ cdef class Model:
             col_cdeg_mean[col_i] = cdeg_mean
             col_cdeg_std[col_i] =  math.sqrt(cdeg_var)
             col_cdeg_min[col_i] = cdeg_min
-            col_cdeg_max = cdeg_max
+            col_cdeg_max[col_i] = cdeg_max
 
             # Min/max for ratios of constraint coeffs. to RHS/LHS (8)
             prhs_ratio_max, prhs_ratio_min = -1, 1
