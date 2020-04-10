@@ -490,6 +490,10 @@ cdef extern from "scip/scip.h":
 		SCIP_SOL *  	sol 
 	) 		
     
+    int SCIPvarGetNLocksUp 	( 	SCIP_VAR *  	var	)
+
+    int SCIPvarGetNLocksDown 	( 	SCIP_VAR *  	var	)
+
     # General SCIP Methods
     SCIP_RETCODE SCIPcreate(SCIP** scip)
     SCIP_RETCODE SCIPfree(SCIP** scip)

@@ -6,7 +6,7 @@ from os.path import splitext
 import sys
 import warnings
 import numpy as np
-
+import math
 cimport numpy as np
 from cpython cimport Py_INCREF, Py_DECREF
 from libc.stdlib cimport malloc, free
@@ -4260,6 +4260,507 @@ cdef class Model:
             'stats': {
                 'nlps': SCIPgetNLPs(scip),
             },
+        }
+
+
+    def getDingState(self):
+        cdef SCIP* scip = self._scip
+        cdef int i, j, k, col_i
+        cdef SCIP_Real sim, prod
+
+        # COLUMNS
+        cdef SCIP_COL** cols = SCIPgetLPCols(scip)
+        cdef int ncols = SCIPgetNLPCols(scip)
+
+        cdef np.ndarray[np.int32_t,   ndim=1] col_type_binary
+        cdef np.ndarray[np.int32_t,   ndim=1] col_type_int
+        cdef np.ndarray[np.float32_t, ndim=1] col_coefs
+        cdef np.ndarray[np.float32_t, ndim=1] col_coefs_pos
+        cdef np.ndarray[np.float32_t, ndim=1] col_coefs_neg
+        cdef np.ndarray[np.int32_t, ndim=1]   col_nnzrs
+        cdef np.ndarray[np.int32_t, ndim=1]   col_nup_locks
+        cdef np.ndarray[np.int32_t, ndim=1]   col_ndown_locks
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_solvals
+        cdef np.ndarray[np.float32_t, ndim=1] col_sol_frac_up
+        cdef np.ndarray[np.float32_t, ndim=1] col_sol_frac_down
+        cdef np.ndarray[np.float32_t, ndim=1] col_sol_isfrac
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_up
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_down
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_ratio
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_ps_product
+        cdef np.ndarray[np.float32_t, ndim=1] col_lbs
+        cdef np.ndarray[np.float32_t, ndim=1] col_ubs
+        cdef np.ndarray[np.float32_t, ndim=1] col_red_costs
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_cdeg_std
+        cdef np.ndarray[np.int32_t, ndim=1]   col_cdeg_min
+        cdef np.ndarray[np.int32_t, ndim=1]   col_cdeg_max
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_prhs_ratio_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_prhs_ratio_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_nrhs_ratio_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_nrhs_ratio_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_plhs_ratio_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_plhs_ratio_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_nlhs_ratio_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_nlhs_ratio_min
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_pcoefs_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_pcoefs_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_pcoefs_std
+        cdef np.ndarray[np.float32_t, ndim=1] col_pcoefs_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_pcoefs_max
+        cdef np.ndarray[np.float32_t, ndim=1] col_ncoefs_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_ncoefs_mean
+        cdef np.ndarray[np.float32_t, ndim=1] col_ncoefs_std
+        cdef np.ndarray[np.float32_t, ndim=1] col_ncoefs_min
+        cdef np.ndarray[np.float32_t, ndim=1] col_ncoefs_max
+
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_sum1_unit_weight
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_mean1_unit_weight
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_std1_unit_weight
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_max1_unit_weight
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_min1_unit_weight
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_sum2_inverse_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_mean2_inverse_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_std2_inverse_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_max2_inverse_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_min2_inverse_sum
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_sum3_dual_cost
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_mean3_dual_cost
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_std3_dual_cost
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_max3_dual_cost
+        cdef np.ndarray[np.float32_t, ndim=1] col_coef_min3_dual_cost
+
+
+        col_type_binary                = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_type_int                = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coefs                = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coefs_pos            = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coefs_neg            = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_nnzrs                = np.empty(shape=(ncols, ), dtype=np.int32)
+        col_nup_locks            = np.empty(shape=(ncols, ), dtype=np.int32)
+        col_ndown_locks          = np.empty(shape=(ncols, ), dtype=np.int32)
+
+        col_solvals              = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_sol_frac_up              = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_sol_frac_down            = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_sol_isfrac        = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_red_costs            = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_lbs                  = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ubs                  = np.empty(shape=(ncols, ), dtype=np.float32)
+
+        col_ps_up                = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ps_down              = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ps_ratio             = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ps_sum               = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ps_product           = np.empty(shape=(ncols, ), dtype=np.float32)
+
+        col_cdeg_mean           = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_cdeg_std            = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_cdeg_min            = np.empty(shape=(ncols, ), dtype=np.int32)
+        col_cdeg_max            = np.empty(shape=(ncols, ), dtype=np.int32)
+
+        col_prhs_ratio_max      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_prhs_ratio_min      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_nrhs_ratio_max      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_nrhs_ratio_min      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_plhs_ratio_max      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_plhs_ratio_min      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_nlhs_ratio_max      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_nlhs_ratio_min      = np.empty(shape=(ncols, ), dtype=np.float32)
+    
+
+        col_pcoefs_sum      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_pcoefs_mean     = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_pcoefs_std      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_pcoefs_min      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_pcoefs_max      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ncoefs_sum      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ncoefs_mean     = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ncoefs_std      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ncoefs_min      = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_ncoefs_max      = np.empty(shape=(ncols, ), dtype=np.float32)
+
+        col_coef_sum1_unit_weight          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_mean1_unit_weight         = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_std1_unit_weight          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_max1_unit_weight          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_min1_unit_weight          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_sum2_inverse_sum          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_mean2_inverse_sum         = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_std2_inverse_sum          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_max2_inverse_sum          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_min2_inverse_sum          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_sum3_dual_cost          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_mean3_dual_cost         = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_std3_dual_cost          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_max3_dual_cost          = np.empty(shape=(ncols, ), dtype=np.float32)
+        col_coef_min3_dual_cost          = np.empty(shape=(ncols, ), dtype=np.float32)
+
+
+        cdef SCIP_ROW** neighbors
+        cdef SCIP_Real* nonzero_coefs_raw
+        cdef SCIP_Real* all_coefs_raw
+        cdef SCIP_Real activity, lhs, rhs, coef
+        cdef SCIP_VAR* var
+        cdef SCIP_COL* col
+        cdef int neighbor_index, cdeg_max, cdeg_min, cdeg, nb_neighbors
+        cdef float cdeg_mean, cdeg_var
+        cdef int pcoefs_count, ncoefs_count
+        cdef float pcoefs_var, pcoefs_mean, pcoefs_min, pcoefs_max
+        cdef float ncoefs_var, ncoefs_mean, ncoefs_min, ncoefs_max
+
+        for i in range(ncols):
+            col = cols[i]
+            col_i = SCIPcolGetIndex(col)
+            neighbors = SCIPcolGetRows(col)
+            nb_neighbors = SCIPcolGetNNonz(col)
+            nonzero_coefs_raw = SCIPcolGetVals(col)
+            var = SCIPcolGetVar(cols[i])
+
+            ##### basic features #####
+
+            # Variable type
+            col_type_binary[col_i] = SCIPvarIsBinary(var)
+            col_type_int[col_i] = SCIPvarIsIntegral(var)
+
+            # Objective coefficient
+            col_coefs[col_i] = SCIPcolGetObj(cols[i])
+            col_coefs_pos = max(col_coefs[col_i], 0)
+            col_coefs_neg = min(col_coefs[col_i], 0)
+
+            # nonzeros for col in constraints
+            col_nnzrs[col_i] = SCIPcolGetNNonz(col)
+
+            # locks
+            col_nup_locks[col_i] = SCIPvarGetNLocksUp(var)
+            col_ndown_locks[col_i] = SCIPvarGetNLocksDown(var)
+
+            ##### lp features #####
+            solval = SCIPcolGetPrimsol(cols[i])
+            col_solvals[col_i] = solval
+            col_sol_frac_up = math.ceil(solval) - solval
+            col_sol_frac_down = solval - math.floor(solval)
+            col_sol_isfrac = SCIPfeasFrac(scip, solval)
+
+            # Global bounds
+            col_lbs[col_i] = SCIPcolGetLb(cols[i])
+            col_ubs[col_i] = SCIPcolGetUb(cols[i])
+
+            # reduced cost
+            col_red_costs[col_i] = SCIPgetColRedcost(scip, cols[i])
+
+            # Stats. for constraint degrees (4)
+            #   The degree of a constraint is the number of variables that participate in it. A variable may
+            #   participate in multiple constraints, and statistics over those constraints’ degrees are used.
+            #   The constraint degree is computed on the root LP (mean, stdev., min, max)
+            cdeg_var, cdeg_mean, cdeg_min, cdeg_max = 0, 0, 0, 0
+            if nb_neighbors > 0:
+                for neighbor_index in range(nb_neighbors):
+                    cdeg = SCIProwGetNNonz(neighbors[neighbor_index])
+                    cdeg_mean += cdeg
+                    cdeg_max = cdeg if neighbor_index == 0 else max(cdeg_max, cdeg)
+                    cdeg_min = cdeg if neighbor_index == 0 else min(cdeg_min, cdeg)
+                cdeg_mean /= nb_neighbors
+                for neighbor_index in range(nb_neighbors):
+                    cdeg_var += (cdeg - cdeg_mean)**2
+                cdeg_var /= nb_neighbors
+
+            col_cdeg_mean[col_i] = cdeg_mean
+            col_cdeg_std[col_i] =  math.sqrt(cdeg_var)
+            col_cdeg_min[col_i] = cdeg_min
+            col_cdeg_max = cdeg_max
+
+            # Min/max for ratios of constraint coeffs. to RHS/LHS (8)
+            prhs_ratio_max, prhs_ratio_min = -1, 1
+            nrhs_ratio_max, nrhs_ratio_min = -1, 1
+            for neighbor_index in range(nb_neighbors):
+                coef = nonzero_coefs_raw[neighbor_index]
+                rhs = SCIProwGetRhs(neighbors[neighbor_index])
+                lhs = SCIProwGetLhs(neighbors[neighbor_index])
+                if not SCIPisInfinity(scip, REALABS(rhs)):
+                    value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(rhs))
+                    if rhs >= 0:
+                        rhs_ratio_max = max(prhs_ratio_max, value)
+                        rhs_ratio_min = min(prhs_ratio_min, value)
+                    else:
+                        nrhs_ratio_max = max(nrhs_ratio_max, value)
+                        nrhs_ratio_min = min(nrhs_ratio_min, value)
+                if not SCIPisInfinity(scip, REALABS(lhs)):
+                    value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(lhs))
+                    if -lhs >= 0:
+                        prhs_ratio_max = max(prhs_ratio_max, value)
+                        prhs_ratio_min = min(prhs_ratio_min, value)
+                    else:
+                        nrhs_ratio_max = max(nrhs_ratio_max, value)
+                        nrhs_ratio_min = min(nrhs_ratio_min, value)
+            col_prhs_ratio_max[col_i] = prhs_ratio_max
+            col_prhs_ratio_min[col_i] = prhs_ratio_min
+            col_nrhs_ratio_max[col_i] = nrhs_ratio_max
+            col_nrhs_ratio_min[col_i] = nrhs_ratio_min
+
+            plhs_ratio_max, plhs_ratio_min = -1, 1
+            nlhs_ratio_max, nlhs_ratio_min = -1, 1
+            for neighbor_index in range(nb_neighbors):
+                coef = nonzero_coefs_raw[neighbor_index]
+                rhs = SCIProwGetRhs(neighbors[neighbor_index])
+                lhs = SCIProwGetLhs(neighbors[neighbor_index])
+                if not SCIPisInfinity(scip, REALABS(lhs)):
+                    value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(lhs))
+                    if lhs >= 0:
+                        lhs_ratio_max = max(plhs_ratio_max, value)
+                        lhs_ratio_min = min(plhs_ratio_min, value)
+                    else:
+                        nlhs_ratio_max = max(nlhs_ratio_max, value)
+                        nlhs_ratio_min = min(nlhs_ratio_min, value)
+                if not SCIPisInfinity(scip, REALABS(rhs)):
+                    value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(rhs))
+                    if -rhs >= 0:
+                        plhs_ratio_max = max(plhs_ratio_max, value)
+                        plhs_ratio_min = min(plhs_ratio_min, value)
+                    else:
+                        nlhs_ratio_max = max(nlhs_ratio_max, value)
+                        nlhs_ratio_min = min(nlhs_ratio_min, value)
+            col_plhs_ratio_max[col_i] = plhs_ratio_max
+            col_plhs_ratio_min[col_i] = plhs_ratio_min
+            col_nlhs_ratio_max[col_i] = nlhs_ratio_max
+            col_nlhs_ratio_min[col_i] = nlhs_ratio_min
+
+            
+            # Stats. for constraint coeffs. (10)
+            #   A variable’s positive (negative) coefficients in the constraints it participates in
+            #   (count, mean, stdev., min, max)
+            pcoefs_var, pcoefs_mean, pcoefs_min, pcoefs_max = 0, 0, 0, 0.
+            ncoefs_var, ncoefs_mean, ncoefs_min, ncoefs_max = 0, 0, 0, 0.
+            pcoefs_count, ncoefs_count = 0, 0
+            for neighbor_index in range(nb_neighbors):
+                coef = nonzero_coefs_raw[neighbor_index]
+                if coef > 0:
+                    pcoefs_count += 1
+                    pcoefs_mean = coef
+                    pcoefs_min = coef if pcoefs_count == 1 else min(pcoefs_min, coef)
+                    pcoefs_max = coef if pcoefs_count == 1 else max(pcoefs_max, coef)
+                if coef < 0:
+                    ncoefs_count += 1
+                    ncoefs_mean += coef
+                    ncoefs_min = coef if ncoefs_count == 1 else min(ncoefs_min, coef)
+                    ncoefs_max = coef if ncoefs_count == 1 else max(ncoefs_max, coef)
+            if pcoefs_count > 0:
+                pcoefs_mean /= pcoefs_count
+            if ncoefs_count > 0:
+                ncoefs_mean /= ncoefs_count
+            for neighbor_index in range(nb_neighbors):
+                coef = nonzero_coefs_raw[neighbor_index]
+                if coef > 0:
+                    pcoefs_var += (coef - pcoefs_mean)**2
+                if coef < 0:
+                    ncoefs_var += (coef - ncoefs_mean)**2
+            if pcoefs_count > 0:
+                pcoefs_var /= pcoefs_count
+            if ncoefs_count > 0:
+                ncoefs_var /= ncoefs_count
+            col_pcoefs_sum[col_i]   = pcoefs_count
+            col_pcoefs_mean[col_i]  = pcoefs_mean
+            col_pcoefs_std[col_i]   = math.sqrt(pcoefs_var)
+            col_pcoefs_min[col_i]   = pcoefs_min
+            col_pcoefs_max[col_i]   = pcoefs_max
+            col_ncoefs_sum[col_i]   = ncoefs_count
+            col_ncoefs_mean[col_i]  = ncoefs_mean
+            col_ncoefs_std[col_i]   = math.sqrt(ncoefs_var)
+            col_ncoefs_min[col_i]   = ncoefs_min
+            col_ncoefs_max[col_i]   = ncoefs_max
+
+            neighbors = SCIPcolGetRows(col)
+            nb_neighbors = SCIPcolGetNNonz(col)
+            nonzero_coefs_raw = SCIPcolGetVals(col)
+
+        # --------------
+        # Stats. for constraint coefficients (3 * 5)
+        #   An active constraint at a node LP is one which is binding with equality at the optimum.
+        #   We consider 3 weighting schemes for an active constraint: unit weight, inverse of the
+        #   sum of the coefficients of all variables in constraint, dual cost of the constraint. Given the absolute
+        #   value of the coefficients of xj in the active constraints, we compute the sum, mean, stdev.,
+        #   max. and min. of those values, for each of the weighting schemes. We also compute the weighted
+        #   number of active constraints that xj is in, with the same 4 weightings
+        cdef int row_index
+        cdef int nrows = SCIPgetNLPRows(scip)
+        cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
+        cdef float constraint_sum, abs_coef
+        cdef SCIP_COL** neighbor_columns
+        cdef int neighbor_var_index, candidate_index
+        cdef int count
+        cdef float cons_sum1, cons_mean1, cons_var1, cons_max1, cons_min1
+        cdef float cons_sum2, cons_mean2, cons_var2, cons_max2, cons_min2
+        cdef float cons_sum3, cons_mean3, cons_var3, cons_max3, cons_min3
+        cdef np.ndarray[np.float32_t, ndim=1] cons_w1, cons_w2, cons_w3, act_cons_w4
+
+        cons_w1 = np.zeros(shape=(nrows, ), dtype=np.float32)
+        cons_w2 = np.zeros(shape=(nrows, ), dtype=np.float32)
+        cons_w3 = np.zeros(shape=(nrows, ), dtype=np.float32)
+
+        for row_index in range(nrows):
+            row = rows[row_index]
+
+            neighbor_columns = SCIProwGetCols(row)
+            neighbor_ncolumns = SCIProwGetNNonz(row)
+            neighbor_columns_values = SCIProwGetVals(row)
+
+            # weight no. 1
+            # unit weight
+            cons_w1[row_index] = 1
+
+            # weight no. 2
+            # inverse of the sum of the coefficients of all variables in constraint
+            constraint_sum = 0
+            for neighbor_column_index in range(neighbor_ncolumns):
+                constraint_sum += REALABS(neighbor_columns_values[neighbor_column_index])
+            cons_w2[row_index] = 1 if constraint_sum == 0 else 1 / constraint_sum
+
+            # weight no. 3
+            # dual cost of the constraint
+            cons_w3[row_index] = REALABS(SCIProwGetDualsol(row))
+
+
+        for i in range(ncols):
+            col = cols[i]
+            col_i = SCIPcolGetIndex(col)
+            neighbors = SCIPcolGetRows(col)
+            nb_neighbors = SCIPcolGetNNonz(col)
+            nonzero_coefs_raw = SCIPcolGetVals(col)
+            var = SCIPcolGetVar(cols[i])
+
+            cons_sum1, cons_mean1, cons_var1, cons_max1, cons_min1 = 0, 0, 0, 0, 0
+            cons_sum2, cons_mean2, cons_var2, cons_max2, cons_min2 = 0, 0, 0, 0, 0
+            cons_sum3, cons_mean3, cons_var3, cons_max3, cons_min3 = 0, 0, 0, 0, 0
+            count = 0
+            for neighbor_index in range(nb_neighbors):
+                count += 1
+                neighbor_row_index = SCIProwGetLPPos(neighbors[neighbor_index])
+                abs_coef = REALABS(nonzero_coefs_raw[neighbor_index])
+
+                value = cons_w1[neighbor_row_index] * abs_coef
+                cons_sum1 += value
+                cons_max1 = value if count == 1 else max(cons_max1, value)
+                cons_min1 = value if count == 1 else min(cons_min1, value)
+
+                value = cons_w2[neighbor_row_index] * abs_coef
+                cons_sum2 += value
+                cons_max2 = value if count == 1 else max(cons_max2, value)
+                cons_min2 = value if count == 1 else min(cons_min2, value)
+
+                value = cons_w3[neighbor_row_index] * abs_coef
+                cons_sum3 += value
+                cons_max3 = value if count == 1 else max(cons_max3, value)
+                cons_min3 = value if count == 1 else min(cons_min3, value)
+
+            if count > 0:
+                cons_mean1 = cons_sum1 / count
+                cons_mean2 = cons_sum2 / count
+                cons_mean3 = cons_sum3 / count
+
+                for neighbor_index in range(nb_neighbors):
+
+                    neighbor_row_index = SCIProwGetLPPos(neighbors[neighbor_index])
+                    abs_coef = REALABS(nonzero_coefs_raw[neighbor_index])
+
+                    value = cons_w1[neighbor_row_index] * abs_coef
+                    cons_var1 += (value - cons_mean1)**2
+
+                    value = cons_w2[neighbor_row_index] * abs_coef
+                    cons_var2 += (value - cons_mean2)**2
+
+                    value = cons_w3[neighbor_row_index] * abs_coef
+                    cons_var3 += (value - cons_mean3)**2
+
+                cons_var1 /= count
+                cons_var2 /= count
+                cons_var3 /= count
+
+            col_coef_sum1_unit_weight[col_i]  = cons_sum1
+            col_coef_sum2_inverse_sum[col_i]  = cons_sum2
+            col_coef_sum3_dual_cost[col_i]  = cons_sum3
+            col_coef_mean1_unit_weight[col_i] = cons_mean1
+            col_coef_mean2_inverse_sum[col_i] = cons_mean2
+            col_coef_mean3_dual_cost[col_i] = cons_mean3
+            col_coef_max1_unit_weight[col_i]  = cons_max1
+            col_coef_max2_inverse_sum[col_i]  = cons_max2
+            col_coef_max3_dual_cost[col_i]  = cons_max3
+            col_coef_min1_unit_weight[col_i]  = cons_min1
+            col_coef_min2_inverse_sum[col_i]  = cons_min2
+            col_coef_min3_dual_cost[col_i]  = cons_min3
+            col_coef_std1_unit_weight[col_i]  = math.sqrt(cons_var1)
+            col_coef_std2_inverse_sum[col_i]  = math.sqrt(cons_var2)
+            col_coef_std3_dual_cost[col_i]  = math.sqrt(cons_var3)
+
+
+        return {
+            # basic (8)
+            'col_type_binary':          col_type_binary,
+            'col_type_int':             col_type_int,
+            'col_coefs':                col_coefs,
+            'col_coefs_pos':            col_coefs_pos,
+            'col_coefs_neg':            col_coefs_neg,
+            'col_nnzrs':                col_nnzrs,
+            'col_nup_locks':            col_nup_locks,
+            'col_ndown_locks':          col_ndown_locks,
+
+            # LP (12)
+            'col_solvals':              col_solvals,
+            'col_sol_frac_up':          col_sol_frac_up,
+            'col_sol_frac_down':        col_sol_frac_down,
+            'col_sol_isfrac':           col_sol_isfrac,
+            'col_red_costs':            col_red_costs,
+            'col_lbs':                  col_lbs,
+            'col_ubs':                  col_ubs,
+            'col_ps_up':                col_ps_up,
+            'col_ps_down':              col_ps_down,
+            'col_ps_ratio':             col_ps_ratio,
+            'col_ps_sum':               col_ps_sum,
+            'col_ps_product':           col_ps_product,
+
+            # Structure (4 + 8 + 10 + 15)
+            'col_cdeg_mean':            col_cdeg_mean,
+            'col_cdeg_std':             col_cdeg_std,
+            'col_cdeg_min':             col_cdeg_min,
+            'col_cdeg_max':             col_cdeg_max,
+            'col_prhs_ratio_max':            col_prhs_ratio_max,
+            'col_prhs_ratio_min':            col_prhs_ratio_min,
+            'col_nrhs_ratio_max':            col_nrhs_ratio_max,
+            'col_nrhs_ratio_min':            col_nrhs_ratio_min,
+            'col_plhs_ratio_max':            col_plhs_ratio_max,
+            'col_plhs_ratio_min':            col_plhs_ratio_min,
+            'col_nlhs_ratio_max':            col_nlhs_ratio_max,
+            'col_nlhs_ratio_min':            col_nlhs_ratio_min,
+            'col_pcoefs_sum':            col_pcoefs_sum,
+            'col_pcoefs_mean':            col_pcoefs_mean,
+            'col_pcoefs_std':            col_pcoefs_std,
+            'col_pcoefs_min':            col_pcoefs_min,
+            'col_pcoefs_max':            col_pcoefs_max,
+            'col_ncoefs_sum':            col_ncoefs_sum,
+            'col_ncoefs_mean':            col_ncoefs_mean,
+            'col_ncoefs_std':            col_ncoefs_std,
+            'col_ncoefs_min':            col_ncoefs_min,
+            'col_ncoefs_max':            col_ncoefs_max,
+            'col_coef_sum1_unit_weight':            col_coef_sum1_unit_weight,
+            'col_coef_mean1_unit_weight':            col_coef_mean1_unit_weight,
+            'col_coef_std1_unit_weight':            col_coef_std1_unit_weight,
+            'col_coef_max1_unit_weight':            col_coef_max1_unit_weight,
+            'col_coef_min1_unit_weight':            col_coef_min1_unit_weight,
+            'col_coef_sum2_inverse_sum':            col_coef_sum2_inverse_sum,
+            'col_coef_mean2_inverse_sum':            col_coef_mean2_inverse_sum,
+            'col_coef_std2_inverse_sum':            col_coef_std2_inverse_sum,
+            'col_coef_max2_inverse_sum':            col_coef_max2_inverse_sum,
+            'col_coef_min2_inverse_sum':            col_coef_min2_inverse_sum,
+            'col_coef_sum3_dual_cost':            col_coef_sum3_dual_cost,
+            'col_coef_mean3_dual_cost':            col_coef_mean3_dual_cost,
+            'col_coef_std3_dual_cost':            col_coef_std3_dual_cost,
+            'col_coef_max3_dual_cost':            col_coef_max3_dual_cost,
+            'col_coef_min3_dual_cost':            col_coef_min3_dual_cost,
         }
 
     def getKhalilState(self, root_info, candidates):
