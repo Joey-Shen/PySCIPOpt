@@ -4329,7 +4329,11 @@ cdef class Model:
         cdef np.ndarray[np.float32_t, ndim=1] col_coef_max3_dual_cost
         cdef np.ndarray[np.float32_t, ndim=1] col_coef_min3_dual_cost
 
-
+        cdef SCIP* scip = self._scip
+        cdef int i, j, k, col_i
+        cdef SCIP_Real sim, prod
+        cdef int ncols = SCIPgetNLPCols(scip)
+        
         col_type_binary                = np.empty(shape=(ncols, ), dtype=np.int32)
         col_type_int                = np.empty(shape=(ncols, ), dtype=np.int32)
         col_coefs                = np.empty(shape=(ncols, ), dtype=np.float32)
@@ -4395,13 +4399,8 @@ cdef class Model:
         col_coef_max3_dual_cost          = np.empty(shape=(ncols, ), dtype=np.float32)
         col_coef_min3_dual_cost          = np.empty(shape=(ncols, ), dtype=np.float32)
 
-        cdef SCIP* scip = self._scip
-        cdef int i, j, k, col_i
-        cdef SCIP_Real sim, prod
-
         # COLUMNS
         cdef SCIP_COL** cols = SCIPgetLPCols(scip)
-        cdef int ncols = SCIPgetNLPCols(scip)
 
         cdef SCIP_ROW** neighbors
         cdef SCIP_Real* nonzero_coefs_raw
@@ -4496,12 +4495,12 @@ cdef class Model:
 
                 if not SCIPisInfinity(scip, REALABS(lhs)):
                     value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(lhs))
-                    if rhs >= 0:
-                        plhs_ratio_max = max(plhs_ratio_max, value)
-                        plhs_ratio_min = min(plhs_ratio_min, value)
+                    if lhs >= 0:
+                        prhs_ratio_max = max(prhs_ratio_max, value)
+                        prhs_ratio_min = min(prhs_ratio_min, value)
                     else:
-                        nlhs_ratio_max = max(nlhs_ratio_max, value)
-                        nlhs_ratio_min = min(nlhs_ratio_min, value)
+                        nrhs_ratio_max = max(nrhs_ratio_max, value)
+                        nrhs_ratio_min = min(nrhs_ratio_min, value)
             col_prhs_ratio_max[col_i] = prhs_ratio_max
             col_prhs_ratio_min[col_i] = prhs_ratio_min
             col_nrhs_ratio_max[col_i] = nrhs_ratio_max
@@ -5114,8 +5113,8 @@ cdef class Model:
                 if not SCIPisInfinity(scip, REALABS(rhs)):
                     value = 0 if coef == 0 else coef / (REALABS(coef) + REALABS(rhs))
                     if rhs >= 0:
-                        prhs_ratio_max = max(prhs_ratio_max, value)
-                        prhs_ratio_min = min(prhs_ratio_min, value)
+                        rhs_ratio_max = max(prhs_ratio_max, value)
+                        rhs_ratio_min = min(prhs_ratio_min, value)
                     else:
                         nrhs_ratio_max = max(nrhs_ratio_max, value)
                         nrhs_ratio_min = min(nrhs_ratio_min, value)
