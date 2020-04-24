@@ -2013,12 +2013,3 @@ cdef extern from "scip/struct_stat.h":
         SCIP_Bool   performpresol
         SCIP_Bool   branchedunbdvar
         SCIP_Bool   disableenforelaxmsg
-
-cdef extern from "scip/branch_vanillafullstrong.h":
-    SCIP_RETCODE SCIPincludeBranchruleVanillafullstrong(SCIP* scip)
-    SCIP_RETCODE SCIPgetVanillafullstrongData(SCIP* scip,
-                                              SCIP_VAR*** cands,
-                                              SCIP_Real** candscores,
-                                              int* ncands,
-                                              int* npriocands,
-                                              int* bestcand)

@@ -5582,26 +5582,6 @@ cdef class Model:
             branchrule.branchexeclp(self._scip, branchrule, allowaddcons, &result)
             return result
 
-    def getVanillafullstrongData(self):
-        cdef SCIP_VAR** cands
-        cdef SCIP_Real* candscores
-        cdef int        ncands
-        cdef int        npriocands
-        cdef int        bestcand
-
-        PY_SCIP_CALL(SCIPgetVanillafullstrongData(self._scip,
-            &cands, &candscores, &ncands, &npriocands, &bestcand))
-
-        assert cands is not NULL
-        assert ncands > 0 and npriocands >= 0
-        assert bestcand > -1
-
-        return (
-            [Variable.create(cands[i]) for i in range(ncands)],
-            None if candscores is NULL else [candscores[i] for i in range(ncands)],
-            npriocands,
-            bestcand
-        )
 
 # debugging memory management
 def is_memory_freed():
