@@ -4263,7 +4263,7 @@ cdef class Model:
         }
 
 
-    def getDingState(self):
+    def getDingStateCols(self):
 
         cdef np.ndarray[np.int32_t,   ndim=1] col_type_binary
         cdef np.ndarray[np.int32_t,   ndim=1] col_type_int
