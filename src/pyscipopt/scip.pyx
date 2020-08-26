@@ -4300,8 +4300,217 @@ cdef class Model:
             },
         }
 
+    def getDingStateRows(self):
+        # basic features
+        cdef np.ndarray[np.int32_t, ndim=1] cons_is_singleton
+        cdef np.ndarray[np.int32_t, ndim=1] cons_is_aggregation
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_precedence
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_knapsack
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_logicor
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_general_linear
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_AND
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_OR
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_XOR
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_linking
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_cardinality
+        cdef np.ndarray[np.int32_t, ndim=1]   cons_is_variable_bound
+        cdef np.ndarray[np.float32_t, ndim=1] cons_lhs
+        cdef np.ndarray[np.float32_t, ndim=1] cons_rhs
+        cdef np.ndarray[np.int32_t, ndim=1] cons_nnzrs
+        cdef np.ndarray[np.int32_t, ndim=1] cons_npos
+        cdef np.ndarray[np.int32_t, ndim=1] cons_nneg
 
-    def getDingState(self):
+        # lp features
+        cdef np.ndarray[np.float32_t, ndim=1] cons_dual_sol
+        cdef np.ndarray[np.int32_t, ndim=1] cons_basis_status
+
+        # structural features
+        cdef np.ndarray[np.float32_t, ndim=1] cons_sum_abs
+        cdef np.ndarray[np.float32_t, ndim=1] cons_sum_pos
+        cdef np.ndarray[np.float32_t,   ndim=1] cons_sum_neg
+        cdef np.ndarray[np.float32_t,   ndim=1] cons_coef_mean
+        cdef np.ndarray[np.float32_t,   ndim=1] cons_coef_stdev
+        cdef np.ndarray[np.float32_t,   ndim=1] cons_coef_min
+        cdef np.ndarray[np.float32_t,   ndim=1] cons_coef_max
+
+        cdef SCIP* scip = self._scip
+        cdef int nrows = SCIPgetNLPRows(scip)
+        
+    # basic features
+        cons_is_singleton                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_aggregation                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_precedence                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_knapsack                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_logicor                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_general_linear                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_AND                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_OR                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_XOR                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_linking                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_cardinality                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_is_variable_bound                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_lhs                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_rhs                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_nnzrs                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_npos                = np.empty(shape=(nrows, ), dtype=np.int32)
+        cons_nneg                = np.empty(shape=(nrows, ), dtype=np.int32)
+
+        # lp features
+        cons_dual_sol                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_basis_status                = np.empty(shape=(nrows, ), dtype=np.int32)
+
+        # structural features
+        cons_sum_abs                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_sum_pos                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_sum_neg                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_coef_mean                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_coef_stdev                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_coef_min                = np.empty(shape=(nrows, ), dtype=np.float32)
+        cons_coef_max                = np.empty(shape=(nrows, ), dtype=np.float32)
+
+        # COLUMNS
+        cdef int row_i, nnzrs, npos, nneg
+        cdef float lhs, rhs, abs_sum_norm, pos_sum_norm, neg_sum_norm, mean, stdev, min1, max1
+        cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
+
+        for row_i in range(nrows):
+            row = rows[row_i]
+            nnzrs = SCIProwGetNNonz(row)
+            lhs = SCIProwGetLhs(row); rhs = SCIProwGetRhs(row)
+            consname = bytes(SCIPconshdlrGetName(SCIProwGetOriginCons(row))).decode('UTF-8')
+
+            cons_is_singleton[row_i] = 1 if nnzrs == 1 else 0
+            cons_is_aggregation[row_i] = 1 if lhs == rhs and nnzrs > 1 else 0
+            cons_is_precedence[row_i] = 1 if consname == 'cumulative' else 0
+            cons_is_knapsack[row_i] = 1 if consname == 'knapsack' else 0
+            cons_is_logicor[row_i] = 1 if consname == 'logicor' else 0
+            cons_is_general_linear[row_i] = 1 if consname == 'linear' else 0
+            cons_is_AND[row_i] = 1 if consname == 'and' else 0
+            cons_is_OR[row_i] = 1 if consname == 'or' else 0
+            cons_is_XOR[row_i] = 1 if consname == 'xor' else 0
+            cons_is_linking[row_i] = 1 if consname == 'linking' else 0
+            cons_is_cardinality[row_i] = 1 if consname == 'cardinality' else 0
+            cons_is_variable_bound[row_i] = 1 if consname == 'varbound' else 0
+            cons_lhs[row_i] = lhs
+            cons_rhs[row_i] = rhs
+            cons_nnzrs[row_i] = nnzrs
+
+            
+            vals = SCIProwGetVals(row)
+            npos = 0; nneg = 0; abs_sum_norm = 0; pos_sum_norm = 0; neg_sum_norm = 0
+            mean = 0; stdev = 0; min1 = 0; max1 = 0
+            for i in range(nnzrs):
+                abs_sum_norm += REALABS(vals[i])
+                min1 = min(min1, vals[i])
+                max1 = max(max1, vals[i])
+                if vals[i] > 0:
+                    npos += 1
+                    pos_sum_norm += vals[i]
+                else:
+                    nneg += 1
+                    neg_sum_norm += -vals[i]
+                
+            mean = abs_sum_norm / nnzrs if nnzrs != 0 else 0
+
+            for i in range(nnzrs):
+                stdev += (vals[i] - mean) ** 2
+            stdev = SQRT(stdev / nnzrs) if nnzrs != 0 else 0
+
+            cons_npos[row_i] = npos
+            cons_nneg[row_i] = nneg
+            cons_sum_abs[row_i] = abs_sum_norm
+            cons_sum_pos[row_i] = pos_sum_norm
+            cons_sum_neg[row_i] = neg_sum_norm
+            cons_coef_mean[row_i] = mean
+            cons_coef_stdev[row_i] = stdev
+            cons_coef_min[row_i] = min1
+            cons_coef_max[row_i] = max1
+
+            cons_dual_sol[row_i] = SCIProwGetDualsol(row)
+            stat = SCIProwGetBasisStatus(row)
+            if stat == SCIP_BASESTAT_LOWER:
+                cons_basis_status[row_i] = 0
+            elif stat == SCIP_BASESTAT_BASIC:
+                cons_basis_status[row_i] = 1
+            elif stat == SCIP_BASESTAT_UPPER:
+                cons_basis_status[row_i] = 2
+            else:
+                cons_basis_status[row_i] = 3
+
+        return {
+        # basic features
+            'cons_is_singleton': cons_is_singleton,
+            'cons_is_aggregation': cons_is_aggregation,
+            'cons_is_precedence': cons_is_precedence,
+            'cons_is_knapsack': cons_is_knapsack, 
+            'cons_is_logicor': cons_is_logicor, 
+            'cons_is_general_linear': cons_is_general_linear,
+            'cons_is_AND': cons_is_AND,
+            'cons_is_OR': cons_is_OR,
+            'cons_is_XOR': cons_is_XOR,
+            'cons_is_linking': cons_is_linking,
+            'cons_is_cardinality': cons_is_cardinality,
+            'cons_is_variable_bound': cons_is_variable_bound,
+            'cons_lhs': cons_lhs,
+            'cons_rhs': cons_rhs,
+            'cons_nnzrs': cons_nnzrs,
+            'cons_npos': cons_npos,
+            'cons_nneg': cons_nneg,
+
+            # lp features
+            'cons_dual_sol': cons_dual_sol,
+            'cons_basis_status': cons_basis_status,
+
+            # structural features
+            'cons_sum_abs': cons_sum_abs,
+            'cons_sum_pos': cons_sum_pos,
+            'cons_sum_neg': cons_sum_neg,
+            'cons_coef_mean': cons_coef_mean,
+            'cons_coef_stdev': cons_coef_stdev,
+            'cons_coef_min': cons_coef_min,
+            'cons_coef_max': cons_coef_max    
+       }
+    
+
+    def getDingStateLPgraph(self):
+        cdef SCIP* scip = self._scip
+        cdef int row_i, col_i, i
+        
+        cdef int ncols = SCIPgetNLPCols(scip)
+        cdef int nrows = SCIPgetNLPRows(scip)
+
+        cdef np.ndarray[np.float32_t, ndim=2] vc
+        cdef np.ndarray[np.float32_t, ndim=1] vo
+        cdef np.ndarray[np.float32_t, ndim=1] co
+        vc = np.zeros(shape=(nrows, ncols), dtype=np.float32)
+        vo = np.zeros(shape=(ncols, ), dtype=np.float32)
+        co = np.zeros(shape=(nrows, ), dtype=np.float32)
+
+        cdef SCIP_COL** cols = SCIPgetLPCols(scip)
+        for col_i in range(ncols):
+            # vo adj
+            vo[col_i] = SCIPcolGetObj(cols[col_i])
+        
+        cdef SCIP_ROW** rows = SCIPgetLPRows(scip)
+        cdef int ncols_row
+        cdef SCIP_COL** cols_row
+        cdef SCIP_Real* row_coefs
+        for row_i in range(nrows):
+            # co adj
+            co[row_i] = SCIProwGetRhs(rows[row_i])
+        
+            # vc adj
+            ncols_row = SCIProwGetNLPNonz(rows[row_i])
+            cols_row = SCIProwGetCols(rows[row_i])
+            row_coefs = SCIProwGetVals(rows[row_i])
+            for i in range(ncols_row):
+                col_i = SCIPcolGetLPPos(cols_row[i])
+                vc[row_i, col_i] = row_coefs[i]
+
+        return vc, vo, co
+
+
+    def getDingStateCols(self):
 
         # basic features
         cdef np.ndarray[np.int32_t, ndim=1] cons_is_singleton

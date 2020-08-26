@@ -1741,7 +1741,9 @@ cdef extern from "scip/lp.h":
                                        SCIP_LP* lp)
 
     SCIP_Real SCIPcolGetObj(SCIP_COL *col)
+    SCIP_CONSHDLR* SCIProwGetOriginCons( SCIP_ROW* row )
 
+    
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)
 
