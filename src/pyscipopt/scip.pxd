@@ -782,7 +782,14 @@ cdef extern from "scip/scip.h":
     SCIP_RETCODE SCIPgetTransformedCons(SCIP* scip, SCIP_CONS* cons, SCIP_CONS** transcons)
     SCIP_CONS** SCIPgetConss(SCIP* scip)
     const char* SCIPconsGetName(SCIP_CONS* cons)
+    SCIP_Real SCIPconsGetRhs( SCIP* scip, SCIP_CONS* cons, SCIP_Bool* success)
+    SCIP_Real SCIPconsGetLhs( SCIP* scip, SCIP_CONS* cons, SCIP_Bool* success)
+    SCIP_RETCODE SCIPgetConsVals( SCIP* scip, SCIP_CONS* cons, SCIP_Real* vals, 
+                                    int varssize, SCIP_Bool*  success)
+    SCIP_RETCODE SCIPgetConsVars( SCIP* scip, SCIP_CONS* cons, SCIP_VAR** vars, int varssize, SCIP_Bool* success)
     int SCIPgetNConss(SCIP* scip)
+    SCIP_RETCODE SCIPgetConsNVars(SCIP* scip,  SCIP_CONS* cons, int* nvars, SCIP_Bool* success)
+
     SCIP_Bool SCIPconsIsOriginal(SCIP_CONS* cons)
     SCIP_Bool SCIPconsIsTransformed(SCIP_CONS* cons)
     SCIP_Bool SCIPconsIsInitial(SCIP_CONS* cons)
@@ -1743,7 +1750,7 @@ cdef extern from "scip/lp.h":
     SCIP_Real SCIPcolGetObj(SCIP_COL *col)
     SCIP_CONSHDLR* SCIProwGetOriginCons( SCIP_ROW* row )
 
-    
+
 cdef extern from "scip/def.h":
     SCIP_Real REALABS(SCIP_Real x)
 
